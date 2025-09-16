@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item Distribution</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .drag-handle {
+            cursor: grab;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        .ghost-item {
+            opacity: 0.5;
+            border: 2px dashed #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+    <div id="loading-spinner" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-4 border-blue-500 border-t-transparent"></div>
+    </div>
+    <div id="main-content" class="w-full max-w-4xl p-6 bg-white rounded-xl shadow-lg flex flex-col lg:flex-row gap-6">
+
+        <!-- Left Column: Preferences -->
+        <div class="flex-1">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2 text-center lg:text-left">Item Preferences</h1>
+            <p class="text-sm text-gray-500 mb-6 text-center lg:text-left">
+                Drag and drop the items below to create your preference list. The highest-ranked item at the top is your first choice.
+            </p>
+
+            <!-- User Information Form -->
+            <div id="submission-form" class="space-y-6">
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h3 class="font-bold text-lg text-gray-800 mb-2">Your Information</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label for="name-input" class="block text-sm font-medium text-gray-700">Name</label>
+                            <input type="text" id="name-input" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" placeholder="Your Name">
+                        </div>
+                        <div>
+                            <label for="email-input" class="block text-sm font-medium text-gray-700">Email</label>
+                            <input type="email" id="email-input" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" placeholder="Your Email">
+                        </div>
+                        <div>
+                            <label for="score-input" class="block text-sm font-medium text-gray-700">Score</label>
+                            <input type="number" id="score-input" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2" placeholder="e.g., 100" min="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="items-container" class="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200 min-h-[200px]">
+                    <!-- Items will be dynamically loaded here -->
+                    <div class="flex justify-center items-center h-full">
+                        <p class="text-gray-400">Loading items...</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex items-center justify-end">
+                    <p id="user-id-display" class="text-xs text-gray-500 mr-4">User ID: N/A</p>
+                    <button id="save-preferences-btn" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium shadow-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Save Preferences
+                    </button>
+                </div>
+            </div>
+            
+            <div id="submission-closed-message" class="hidden text-center text-sm font-medium p-4 mt-4 rounded-md bg-red-100 text-red-700">
+                The submission period has ended.
+            </div>
+            <div id="status-message" class="mt-4 text-center text-sm font-medium"></div>
+        </div>
+
+        <!-- Right Column: Control Panel & Results -->
+        <div class="flex-1 mt-8 lg:mt-0">
+            <!-- Control Panel -->
+            <div id="control-panel" class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 hidden">
+                <h3 class="text-xl font-bold text-gray-900 mb-2">Admin Control</h3>
+                <p class="text-xs text-gray-500 mb-4">Set the deadline for submissions and run the distribution.</p>
+                <div class="space-y-4">
+                    <div>
+                        <label for="deadline-input" class="block text-sm font-medium text-gray-700">Submission Deadline</label>
+                        <input type="datetime-local" id="deadline-input" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2">
+                    </div>
+                    <button id="run-distribution-btn" class="w-full px-6 py-2 bg-green-600 text-white rounded-lg font-medium shadow-md hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        Run Distribution
+                    </button>
+                    <div id="control-status" class="mt-2 text-sm text-gray-600"></div>
+                </div>
+            </div>
+
+            <!-- Distribution Results -->
+            <h2 class="text-3xl font-bold text-gray-900 mb-2 text-center lg:text-left">Distribution Results</h2>
+            <p class="text-sm text-gray-500 mb-6 text-center lg:text-left">
+                The final item assignments will be displayed here after the distribution is run.
+            </p>
+
+            <div class="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200 min-h-[200px]">
+                <div class="text-center font-bold text-gray-700">Assignments</div>
+                <div id="assignments-container">
+                    <p class="text-gray-400 text-center">Awaiting data...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal for Messages -->
+    <div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+            <h3 id="modal-title" class="text-xl font-bold mb-4 text-gray-900"></h3>
+            <p id="modal-message" class="text-gray-700 mb-6"></p>
+            <div class="flex justify-end">
+                <button id="modal-close-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc, getDoc, collection, getDocs, runTransaction, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        let db, auth, userId, appId;
+        let isDistributionRun = false;
+        let deadline = null;
+        let isAdmin = false;
+
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const nameInput = document.getElementById('name-input');
+        const emailInput = document.getElementById('email-input');
+        const scoreInput = document.getElementById('score-input');
+        const itemsContainer = document.getElementById('items-container');
+        const assignmentsContainer = document.getElementById('assignments-container');
+        const savePreferencesBtn = document.getElementById('save-preferences-btn');
+        const userIdDisplay = document.getElementById('user-id-display');
+        const statusMessage = document.getElementById('status-message');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const submissionForm = document.getElementById('submission-form');
+        const submissionClosedMessage = document.getElementById('submission-closed-message');
+        const controlPanel = document.getElementById('control-panel');
+        const runDistributionBtn = document.getElementById('run-distribution-btn');
+        const deadlineInput = document.getElementById('deadline-input');
+        const controlStatus = document.getElementById('control-status');
+
+        const showError = (title, message) => {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modal.style.display = 'flex';
+        };
+
+        modalCloseBtn.onclick = () => {
+            modal.style.display = 'none';
+        };
+
+        const showLoading = (show) => {
+            loadingSpinner.style.display = show ? 'flex' : 'none';
+        };
+
+        // --- Firebase Initialization and Auth ---
+        const initializeFirebase = async () => {
+            try {
+                showLoading(true);
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                if (!firebaseConfig.apiKey) {
+                    showError("Configuration Error", "Firebase configuration is missing. The app cannot run.");
+                    return;
+                }
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdDisplay.textContent = `User ID: ${userId}`;
+                        console.log(`User authenticated with ID: ${userId}`);
+                        
+                        // Set admin status for the first user to sign in
+                        const controlDoc = await getDoc(getControlDocRef());
+                        if (!controlDoc.exists()) {
+                            isAdmin = true;
+                            await setDoc(getControlDocRef(), {
+                                adminId: userId,
+                                distributionRun: false,
+                                deadline: null
+                            });
+                        } else {
+                            isAdmin = controlDoc.data().adminId === userId;
+                        }
+
+                        await loadAndListenToData();
+                        await loadUserData();
+                    } else {
+                        console.log("No user is signed in.");
+                        userId = null;
+                        userIdDisplay.textContent = 'User ID: N/A';
+                    }
+                    showLoading(false);
+                });
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                showError("Initialization Error", `Failed to set up the application: ${error.message}`);
+                showLoading(false);
+            }
+        };
+
+        // --- Firestore References ---
+        const getUserDocRef = () => {
+            if (!userId) {
+                console.error("User ID is not set. Cannot get user document reference.");
+                return null;
+            }
+            return doc(db, `artifacts/${appId}/users/${userId}`);
+        };
+
+        const getPublicStateDocRef = () => {
+            return doc(db, `artifacts/${appId}/public/data/distribution/state`);
+        };
+
+        const getItemsCollectionRef = () => {
+            return collection(db, `artifacts/${appId}/public/data/items`);
+        };
+
+        const getUserDataCollectionRef = () => {
+            return collection(db, `artifacts/${appId}/users`);
+        };
+
+        const getControlDocRef = () => {
+            return doc(db, `artifacts/${appId}/public/data/control/settings`);
+        };
+        
+        // --- Core Logic ---
+        const loadUserData = async () => {
+            const docRef = getUserDocRef();
+            if (docRef) {
+                try {
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        nameInput.value = data.name || '';
+                        emailInput.value = data.email || '';
+                        scoreInput.value = data.score || 0;
+                    }
+                } catch (error) {
+                    console.error("Failed to load user data:", error);
+                }
+            }
+        };
+
+        const distributeItems = async () => {
+            showLoading(true);
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const usersSnapshot = await getDocs(query(getUserDataCollectionRef()));
+
+                    const usersData = [];
+                    usersSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        usersData.push({
+                            userId: doc.id,
+                            name: data.name,
+                            email: data.email,
+                            score: data.score,
+                            preferences: data.preferences
+                        });
+                    });
+                    
+                    const itemsSnapshot = await getDocs(getItemsCollectionRef());
+                    const items = {};
+                    itemsSnapshot.forEach(doc => {
+                        items[doc.id] = doc.data().stock;
+                    });
+                    
+                    // Sort users by score (descending)
+                    usersData.sort((a, b) => b.score - a.score);
+
+                    const assignments = {};
+                    usersData.forEach(user => {
+                        if (user.preferences) {
+                            for (const item of user.preferences) {
+                                if (items[item] && items[item] > 0) {
+                                    assignments[user.userId] = {
+                                        assignedItem: item,
+                                        name: user.name,
+                                        score: user.score
+                                    };
+                                    items[item]--;
+                                    break;
+                                }
+                            }
+                        }
+                    });
+
+                    // Save the final distribution to Firestore
+                    transaction.set(getPublicStateDocRef(), {
+                        assignments: assignments,
+                        lastUpdated: new Date()
+                    });
+                    
+                    transaction.update(getControlDocRef(), { distributionRun: true });
+                    
+                    isDistributionRun = true;
+                    renderDistribution(assignments);
+                });
+            } catch (error) {
+                console.error("Transaction failed: ", error);
+                showError("Distribution Error", `Failed to distribute items: ${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        };
+
+        const checkDeadline = () => {
+            if (deadline && new Date() > new Date(deadline.toDate())) {
+                submissionForm.classList.add('hidden');
+                submissionClosedMessage.classList.remove('hidden');
+            } else {
+                submissionForm.classList.remove('hidden');
+                submissionClosedMessage.classList.add('hidden');
+            }
+        };
+        
+        const loadAndListenToData = async () => {
+            // Admin panel visibility
+            if (isAdmin) {
+                controlPanel.classList.remove('hidden');
+            }
+
+            // Load items once
+            const itemsSnapshot = await getDocs(getItemsCollectionRef());
+            if (itemsSnapshot.empty) {
+                showError("No Items Found", "An example item list will be created for you. Please reload the page in a few moments.");
+                await setDoc(doc(db, `artifacts/${appId}/public/data/items/Item A`), { id: "Item A", name: "Item A", stock: 2 });
+                await setDoc(doc(db, `artifacts/${appId}/public/data/items/Item B`), { id: "Item B", name: "Item B", stock: 1 });
+                await setDoc(doc(db, `artifacts/${appId}/public/data/items/Item C`), { id: "Item C", name: "Item C", stock: 3 });
+                window.location.reload();
+                return;
+            }
+
+            const items = itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderItems(items);
+
+            // Listen for changes in the control document
+            onSnapshot(getControlDocRef(), (doc) => {
+                if (doc.exists()) {
+                    const data = doc.data();
+                    deadline = data.deadline;
+                    isDistributionRun = data.distributionRun;
+                    
+                    if (isAdmin && data.deadline) {
+                        deadlineInput.value = new Date(data.deadline.toDate()).toISOString().slice(0, 16);
+                    }
+                    
+                    if (isDistributionRun) {
+                        getDoc(getPublicStateDocRef()).then(distDoc => {
+                            if (distDoc.exists()) {
+                                renderDistribution(distDoc.data().assignments);
+                            }
+                        });
+                    }
+
+                    checkDeadline();
+                }
+            });
+
+            // Listen for distribution result changes (if distribution has been run)
+            onSnapshot(getPublicStateDocRef(), (doc) => {
+                if (doc.exists() && isDistributionRun) {
+                    renderDistribution(doc.data().assignments);
+                }
+            }, (error) => {
+                console.error("Failed to listen to distribution changes:", error);
+                showError("Error", "Failed to get distribution results.");
+            });
+        };
+
+        // --- Rendering Functions ---
+        const renderItems = (items) => {
+            itemsContainer.innerHTML = '';
+            items.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'bg-white p-4 rounded-md shadow-sm border border-gray-200 flex justify-between items-center drag-handle';
+                itemDiv.textContent = item.name;
+                itemDiv.draggable = true;
+                itemDiv.dataset.itemId = item.id;
+                itemsContainer.appendChild(itemDiv);
+            });
+        };
+
+        const renderDistribution = (assignments) => {
+            assignmentsContainer.innerHTML = '';
+            if (Object.keys(assignments).length === 0) {
+                assignmentsContainer.innerHTML = '<p class="text-gray-400 text-center">No assignments yet.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'divide-y divide-gray-200';
+                for (const userId in assignments) {
+                    const userAssignment = assignments[userId];
+                    const listItem = document.createElement('li');
+                    listItem.className = 'py-3 flex justify-between items-center';
+                    listItem.innerHTML = `
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">${userAssignment.name || userId}</p>
+                            <p class="text-xs text-gray-500">Score: ${userAssignment.score}</p>
+                        </div>
+                        <span class="text-base font-semibold text-blue-600">${userAssignment.assignedItem}</span>
+                    `;
+                    list.appendChild(listItem);
+                }
+                assignmentsContainer.appendChild(list);
+            }
+        };
+
+        // --- Drag and Drop Logic ---
+        let dragSrcEl = null;
+
+        const handleDragStart = (e) => {
+            dragSrcEl = e.target;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', e.target.dataset.itemId);
+            e.target.classList.add('opacity-50');
+        };
+
+        const handleDragOver = (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const targetEl = e.target.closest('.drag-handle');
+            if (targetEl && targetEl !== dragSrcEl) {
+                const rect = targetEl.getBoundingClientRect();
+                const isAbove = e.clientY < rect.top + rect.height / 2;
+                itemsContainer.insertBefore(dragSrcEl, isAbove ? targetEl : targetEl.nextSibling);
+            }
+        };
+
+        const handleDrop = (e) => {
+            e.preventDefault();
+            e.target.closest('.drag-handle').classList.remove('ghost-item');
+        };
+
+        const handleDragEnd = (e) => {
+            e.target.classList.remove('opacity-50');
+        };
+
+        // --- Event Listeners ---
+        itemsContainer.addEventListener('dragstart', handleDragStart);
+        itemsContainer.addEventListener('dragover', handleDragOver);
+        itemsContainer.addEventListener('drop', handleDrop);
+        itemsContainer.addEventListener('dragend', handleDragEnd);
+
+        savePreferencesBtn.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            const email = emailInput.value.trim();
+            const score = parseFloat(scoreInput.value);
+
+            if (!name || !email || isNaN(score)) {
+                showError("Missing Information", "Please enter your name, email, and a valid score before saving your preferences.");
+                return;
+            }
+
+            if (!userId) {
+                showError("Authentication Error", "Please wait for authentication to complete before saving.");
+                return;
+            }
+            
+            if (deadline && new Date() > new Date(deadline.toDate())) {
+                showError("Submission Deadline Passed", "The time to submit preferences has ended.");
+                return;
+            }
+
+            showLoading(true);
+            const preferences = Array.from(itemsContainer.children).map(el => el.dataset.itemId);
+            
+            const userDocRef = getUserDocRef();
+            if (!userDocRef) {
+                showLoading(false);
+                return;
+            }
+            
+            try {
+                await setDoc(userDocRef, {
+                    name: name,
+                    email: email,
+                    score: score,
+                    preferences: preferences,
+                    timestamp: new Date()
+                });
+                statusMessage.textContent = 'Preferences saved!';
+                statusMessage.className = 'mt-4 text-center text-sm font-medium text-green-600';
+                setTimeout(() => statusMessage.textContent = '', 3000);
+            } catch (error) {
+                console.error("Failed to save preferences:", error);
+                statusMessage.textContent = 'Failed to save preferences. Please try again.';
+                statusMessage.className = 'mt-4 text-center text-sm font-medium text-red-600';
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        runDistributionBtn.addEventListener('click', async () => {
+            if (!isAdmin) {
+                showError("Unauthorized", "You do not have permission to run the distribution.");
+                return;
+            }
+            if (isDistributionRun) {
+                showError("Already Run", "The distribution has already been run.");
+                return;
+            }
+            
+            await distributeItems();
+            controlStatus.textContent = 'Distribution complete!';
+            controlStatus.className = 'mt-2 text-sm text-green-600';
+        });
+
+        deadlineInput.addEventListener('change', async (e) => {
+            if (!isAdmin) {
+                showError("Unauthorized", "You do not have permission to set the deadline.");
+                return;
+            }
+            try {
+                const newDeadline = new Date(e.target.value);
+                await setDoc(getControlDocRef(), { deadline: newDeadline }, { merge: true });
+                controlStatus.textContent = `Deadline set for ${newDeadline.toLocaleString()}.`;
+                controlStatus.className = 'mt-2 text-sm text-green-600';
+            } catch (error) {
+                console.error("Failed to set deadline:", error);
+                controlStatus.textContent = 'Failed to set deadline. Try again.';
+                controlStatus.className = 'mt-2 text-sm text-red-600';
+            }
+        });
+
+        // Initialize the app on window load
+        window.onload = initializeFirebase;
+    </script>
+</body>
+</html>
